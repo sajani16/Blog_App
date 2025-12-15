@@ -197,22 +197,31 @@ async function likeBlog(req, res) {
 }
 
 //comments controller
+
+// Create comment
 async function createComment(req, res) {
   try {
     const { comment } = req.body;
     const blogId = req.params.id;
     const userId = req.user.id;
+
     if (!comment)
       return res.json({ success: false, message: "Comment required" });
-    const newComment = await Comment.create({
+
+    let newComment = await Comment.create({
       blog: blogId,
       user: userId,
       comment,
     });
 
+    // Push to blog
     await Blog.findByIdAndUpdate(blogId, {
       $push: { comment: newComment._id },
     });
+
+    // Populate user before sending to frontend
+    newComment = await newComment.populate("user", "name");
+
     res.json({
       success: true,
       message: "Comment added successfully",
@@ -226,68 +235,100 @@ async function createComment(req, res) {
   }
 }
 
-async function deleteComment(req, res) {
+// Get comments
+async function getComment(req, res) {
   try {
-    const commentId = req.params.id;
-    const userId = req.user.id;
-    const comment = await Comment.findById(commentId).populate({
-      path: "blog",
-      select: "author",
-    });
-    console.log(comment);
-    console.log(userId, comment.user, comment.blog.author);
-    console.log(userId == comment.blog.author);
-    console.log(comment.user == userId);
-    if (
-      comment.user.toString() != userId &&
-      comment.blog.author.toString() != userId
-    )
-      return res.json({
-        success: false,
-        message: "Not authorized to delete",
-      });
-    await Comment.findByIdAndDelete(commentId);
-    await Blog.findByIdAndUpdate(comment.blog._id, {
-      $pull: { comment: commentId },
-    });
+    const blogId = req.params.id;
+
+    const comments = await Comment.find({ blog: blogId })
+      .populate("user", "name")
+      .sort({ createdAt: -1 });
+
     res.json({
       success: true,
-      message: "Comment deleted successfully",
+      message: "Comments fetched successfully",
+      comments,
     });
   } catch (error) {
     console.error(error);
     res
       .status(500)
-      .json({ success: false, message: "Error deleting comment on blog" });
+      .json({ success: false, message: "Error fetching comments" });
   }
 }
 
-async function updateComment(req, res) {
+// Delete comment
+async function deleteComment(req, res) {
   try {
-    const userId = req.user.id;
     const commentId = req.params.id;
-    const { updatedComment } = req.body;
-    const comment = await Comment.findById(commentId);
-    console.log(userId, comment.user);
-    if (comment.user.toString() !== userId)
-      return res.json({
-        success: false,
-        message: "You are not authorized to update the comment",
-      });
-    const updated = await Comment.findByIdAndUpdate(
-      commentId,
-      { comment: updatedComment },
-      { new: true }
+    const userId = req.user.id;
+
+    const comment = await Comment.findById(commentId).populate(
+      "blog",
+      "author"
     );
+
+    if (!comment)
+      return res
+        .status(404)
+        .json({ success: false, message: "Comment not found" });
+
+    // Only comment owner or blog author can delete
+    if (
+      comment.user.toString() !== userId &&
+      comment.blog.author.toString() !== userId
+    )
+      return res
+        .status(403)
+        .json({ success: false, message: "Not authorized" });
+
+    await Comment.findByIdAndDelete(commentId);
+    await Blog.findByIdAndUpdate(comment.blog._id, {
+      $pull: { comment: commentId },
+    });
+
     res.json({
       success: true,
-      message: "Comment updated",
-      updated,
+      message: "Comment deleted successfully",
+      commentId,
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: "Error updating comment on blog" });
+    console.error(error);
+    res.status(500).json({ success: false, message: "Error deleting comment" });
+  }
+}
+
+// Update comment
+async function updateComment(req, res) {
+  try {
+    const commentId = req.params.id;
+    const userId = req.user.id;
+    const { comment: updatedComment } = req.body; // match frontend key
+
+    const comment = await Comment.findById(commentId);
+    if (!comment)
+      return res
+        .status(404)
+        .json({ success: false, message: "Comment not found" });
+
+    if (comment.user.toString() !== userId)
+      return res
+        .status(403)
+        .json({ success: false, message: "Not authorized" });
+
+    comment.comment = updatedComment;
+    await comment.save();
+
+    await comment.populate("user", "name");
+
+    res.json({
+      success: true,
+      message: "Comment updated successfully",
+      comment,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Error updating comment" });
   }
 }
 
@@ -299,6 +340,7 @@ module.exports = {
   deleteBlog,
   likeBlog,
   createComment,
+  getComment,
   deleteComment,
   updateComment,
 };

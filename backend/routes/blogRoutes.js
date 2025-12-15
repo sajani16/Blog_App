@@ -26,7 +26,8 @@ route.post("/likeblog/:id", protect, likeBlog);
 
 //comment
 route.post("/createcomment/:id", protect, createComment);
-route.post("/deletecomment/:id", protect, deleteComment);
-route.post("/updatecomment/:id", protect, updateComment);
+route.get("/getcomment/:id", protect, getComment);
+route.delete("/deletecomment/:id", protect, deleteComment);
+route.put("/updatecomment/:id", protect, updateComment);
 
 module.exports = route;
