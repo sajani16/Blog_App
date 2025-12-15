@@ -134,6 +134,7 @@ function EditBlog() {
           Update Blog
         </button>
       </div>
+      
     </div>
   );
 }

@@ -1,82 +1,88 @@
-import axios from "axios";
-import React, { use, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import axios from "axios";
 import { toast } from "react-toastify";
+import { Heart, MessageCircle } from "lucide-react";
 import Avatar from "../utils/Avatar";
-import { useSelector } from "react-redux";
-import { Heart, HeartOff, MessageCircle } from "lucide-react";
+import Comment from "../components/Comment";
+import { setIsOpen } from "../redux/slices/commentSlice";
 
 function BlogPage() {
-  const navigate = useNavigate();
   const { id } = useParams();
-  // const user = JSON.parse(localStorage.getItem("user"));
-  const { _id: user_Id, token } = useSelector((slice) => slice.user);
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+
+  const { _id: userId, token } = useSelector((state) => state.user);
+  const { isOpen } = useSelector((state) => state.comment);
+
   const [blog, setBlog] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
-  // const [likes, setLikes] = useState([]);
+
   const base_url = import.meta.env.VITE_BACKEND_URL;
-  async function fetchBlogById() {
+
+  // Fetch blog
+  const fetchBlog = async () => {
     try {
       const res = await axios.get(`${base_url}/getblog/${id}`);
       const fetchedBlog = res.data.blog;
       setBlog(fetchedBlog);
-      // setLikes(blog.like.length);
-
-      // FIX: check inside object array
-      setIsLiked(fetchedBlog.like.some((likeUser) => likeUser._id === user_Id));
-    } catch (error) {
-      toast.error(error.message);
+      setIsLiked(fetchedBlog.like?.some((likeUser) => likeUser._id === userId));
+    } catch (err) {
+      toast.error("Failed to fetch blog");
+      console.error(err);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  async function handleLike() {
-    if (token) {
+  // Like/unlike blog
+  const handleLike = async () => {
+    if (!token) {
+      navigate("/login");
+      return toast.error("Please login");
+    }
+
+    try {
       setIsLiked((prev) => !prev);
-      let res = await axios.post(
+      const res = await axios.post(
         `${base_url}/likeblog/${id}`,
         {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-
       toast.success(res.data.message);
-    } else {
-      navigate("/login");
-      toast.error("Please login");
+    } catch (err) {
+      console.error(err);
+      toast.error("Error liking blog");
     }
-  }
+  };
+
   useEffect(() => {
-    fetchBlogById();
-  }, []);
+    fetchBlog();
+    dispatch(setIsOpen(false));
+  }, [id]);
 
-  if (loading) {
+  if (loading)
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <p className="text-gray-600 text-lg">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Loading...</p>
       </div>
     );
-  }
 
-  if (!blog) {
+  if (!blog)
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <p className="text-red-500 text-lg">Blog not found</p>
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-red-500">Blog not found</p>
       </div>
     );
-  }
 
-  const isAuthor = token && blog.author?._id === user_Id;
+  const isAuthor = token && blog.author?._id === userId;
 
   return (
     <div className="min-h-screen bg-gray-100 p-6 flex justify-center">
       <div className="w-full max-w-2xl bg-white rounded-xl shadow p-6">
-        {/* AUTHOR BOX */}
+        {/* Author */}
         <div className="flex items-center gap-3 mb-5">
           <img
             src={blog.author?.image || Avatar(blog.author?.name)}
@@ -84,15 +90,15 @@ function BlogPage() {
             className="w-12 h-12 rounded-full object-cover"
           />
           <div>
-            <p className="font-medium text-gray-800">{blog.author?.name}</p>
+            <p className="font-medium">{blog.author?.name}</p>
             <p className="text-sm text-gray-500">Author</p>
           </div>
         </div>
 
-        {/* TITLE */}
+        {/* Title */}
         <h1 className="text-2xl font-bold mb-4">{blog.title}</h1>
 
-        {/* MAIN IMAGE */}
+        {/* Main image */}
         {blog.image && (
           <img
             src={blog.image}
@@ -101,10 +107,10 @@ function BlogPage() {
           />
         )}
 
-        {/* DESCRIPTION */}
+        {/* Description */}
         <p className="text-gray-800 leading-relaxed">{blog.description}</p>
 
-        {/* EDIT BUTTON */}
+        {/* Edit button */}
         {isAuthor && (
           <div className="mt-6">
             <Link
@@ -115,21 +121,30 @@ function BlogPage() {
             </Link>
           </div>
         )}
-        <div>
-          <div className="flex space-x-4 px-4 py-2 text-gray-600">
-            <div onClick={handleLike}>
-              {isLiked ? (
-                <Heart className="text-red-600 fill-red-600" />
-              ) : (
-                <Heart className="cursor-pointer hover:text-blue-500" />
-              )}
-              {/* {blog.like && likes.length} */}
-            </div>
-            <MessageCircle className="cursor-pointer hover:text-blue-500" />{" "}
-            {blog.comment && blog.comment.length}
+
+        {/* Likes & Comments */}
+        <div className="flex space-x-4 px-4 py-2 text-gray-600 mt-4">
+          <div onClick={handleLike}>
+            {isLiked ? (
+              <Heart className="text-red-600 fill-red-600 cursor-pointer" />
+            ) : (
+              <Heart className="cursor-pointer hover:text-blue-500" />
+            )}
+            <span className="ml-1">{blog.like?.length || 0}</span>
+          </div>
+
+          <div
+            className="flex items-center cursor-pointer hover:text-blue-500"
+            onClick={() => dispatch(setIsOpen(!isOpen))}
+          >
+            <MessageCircle />
+            <span className="ml-1">{blog.comment?.length || 0}</span>
           </div>
         </div>
       </div>
+
+      {/* Comment sidebar */}
+      {isOpen && <Comment blogId={blog._id} blogAuthorId={blog.author?._id} />}
     </div>
   );
 }
