@@ -3,22 +3,24 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { Edit, Trash2 } from "lucide-react";
+import { useSelector } from "react-redux";
 
 function MyPosts() {
   const navigate = useNavigate();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const user = JSON.parse(localStorage.getItem("user")) || {};
-  const token = user.token;
 
+  const { _id: userId, token } = useSelector((state) => state.user) || {};
   const base_url = import.meta.env.VITE_BACKEND_URL;
 
   // Fetch user posts
   const fetchPosts = async () => {
+    if (!userId) return setLoading(false);
+
     try {
-      const res = await axios.get(`${base_url}/getblogs`);
+      const res = await axios.get(`${base_url}/blog/getblogs`);
       const allPosts = res.data.blogs || [];
-      const userPosts = allPosts.filter((p) => p.author._id === user._id);
+      const userPosts = allPosts.filter((p) => p.author._id === userId);
       setPosts(userPosts);
     } catch (err) {
       console.error(err);
@@ -30,24 +32,33 @@ function MyPosts() {
 
   // Delete post
   const handleDelete = async (id) => {
-    if (!token) return toast.error("Login required");
+    if (!token) {
+      toast.error("Login required");
+      return;
+    }
+
     if (!window.confirm("Are you sure you want to delete this post?")) return;
 
     try {
-      await axios.delete(`${base_url}/deleteblog/${id}`, {
+      const res = await axios.delete(`${base_url}/blog/deleteblog/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setPosts(posts.filter((p) => p._id !== id));
-      toast.success("Post deleted");
+
+      if (res.data.success) {
+        setPosts((prev) => prev.filter((p) => p._id !== id));
+        toast.success("Post deleted successfully");
+      } else {
+        toast.error(res.data.message || "Failed to delete post");
+      }
     } catch (err) {
       console.error(err);
-      toast.error("Failed to delete post");
+      toast.error(err.response?.data?.message || "Failed to delete post");
     }
   };
 
   useEffect(() => {
     fetchPosts();
-  }, []);
+  }, [userId]);
 
   if (loading)
     return (

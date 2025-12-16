@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import axios from "axios";
-import { Trash2 } from "lucide-react";
-import Sidebar from "./Sidebar";
-
+import { Trash2, X } from "lucide-react";
 import { setIsOpen } from "../redux/slices/commentSlice";
+import Avatar from "../utils/Avatar"; // assuming you have an Avatar utility
 
 function Comment({ blogId, blogAuthorId }) {
   const dispatch = useDispatch();
@@ -16,30 +15,35 @@ function Comment({ blogId, blogAuthorId }) {
 
   const base_url = import.meta.env.VITE_BACKEND_URL;
 
-  // Fetch comments
+  // Fetch comments when sidebar opens
   useEffect(() => {
     if (!isOpen) return;
 
-    axios
-      .get(`${base_url}/getcomment/${blogId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then((res) => setComments(res.data.comments || []))
-      .catch(console.error);
+    const fetchComments = async () => {
+      try {
+        const res = await axios.get(`${base_url}/blog/getcomment/${blogId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setComments(res.data.comments || []);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchComments();
   }, [isOpen, blogId, token]);
 
-  // Post comment
+  // Post new comment
   const submitHandler = async () => {
     if (!text.trim()) return;
 
     try {
       const res = await axios.post(
-        `${base_url}/createcomment/${blogId}`,
+        `${base_url}/blog/createcomment/${blogId}`,
         { comment: text },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      // Push new comment immediately with populated user
       setComments((prev) => [res.data.newComment, ...prev]);
       setText("");
     } catch (err) {
@@ -50,7 +54,7 @@ function Comment({ blogId, blogAuthorId }) {
   // Delete comment
   const deleteHandler = async (id) => {
     try {
-      await axios.delete(`${base_url}/deletecomment/${id}`, {
+      await axios.delete(`${base_url}/blog/deletecomment/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setComments((prev) => prev.filter((c) => c._id !== id));
@@ -61,50 +65,66 @@ function Comment({ blogId, blogAuthorId }) {
 
   return (
     <div
-      className={`fixed top-0 right-0 h-screen bg-white shadow-xl transition-transform duration-300
-      ${isOpen ? "translate-x-0" : "translate-x-full"} w-[35%]`}
+      className={`fixed top-13 right-0 h-screen bg-white shadow-xl transition-transform duration-300
+      ${isOpen ? "translate-x-0" : "translate-x-full"} w-[35%] flex flex-col`}
     >
       {/* Header */}
       <div className="flex justify-between items-center p-4 border-b">
-        <h3 className="font-semibold">Comments</h3>
-        <button className="text-xl" onClick={() => dispatch(setIsOpen(false))}>
-          ✕
+        <h3 className="font-semibold text-lg">All Comments</h3>
+        <button
+          className="p-1 rounded hover:bg-gray-100"
+          onClick={() => dispatch(setIsOpen(false))}
+        >
+          <X size={20} />
         </button>
       </div>
 
       {/* Comment list */}
-      <div className="p-4 overflow-y-auto h-[calc(100vh-130px)] space-y-4">
-        {comments.length === 0 && (
-          <p className="text-gray-500 text-center">No comments yet</p>
-        )}
+      <div className="p-4 overflow-y-auto flex-1 space-y-4">
+        {comments.length === 0 ? (
+          <p className="text-gray-500 text-center mt-10">No comments yet</p>
+        ) : (
+          comments.map((c) => {
+            const canDelete = c.user?._id === userId || blogAuthorId === userId;
 
-        {comments.map((c) => {
-          const isOwner = c.user?._id === userId || blogAuthorId === userId;
+            return (
+              <div
+                key={c._id}
+                className="flex justify-between items-start border-b pb-2"
+              >
+                {/* Left side: user image + name + comment */}
+                <div className="flex gap-2">
+                  <img
+                    src={c.user?.image ? c.user.image : Avatar(c.user?.name)}
+                    alt={c.user?.name || "Author"}
+                    className="w-8 h-8 rounded-full object-cover mt-1"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">
+                      {c.user?.name || "Unknown"}
+                    </p>
+                    <p className="text-sm text-gray-600">{c.comment}</p>
+                  </div>
+                </div>
 
-          return (
-            <div key={c._id} className="flex justify-between items-start">
-              <div>
-                <p className="font-semibold text-sm">
-                  {c.user?.name || "Unknown"}
-                </p>
-                <p className="text-sm">{c.comment}</p>
+                {/* Right side: delete button */}
+                {canDelete && (
+                  <Trash2
+                    className="text-red-500 cursor-pointer hover:text-red-700 mt-1"
+                    size={18}
+                    onClick={() => deleteHandler(c._id)}
+                  />
+                )}
               </div>
-
-              {isOwner && (
-                <Trash2
-                  className="text-red-500 cursor-pointer hover:text-red-700"
-                  size={18}
-                  onClick={() => deleteHandler(c._id)}
-                />
-              )}
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
 
       {/* Add comment */}
       <div className="border-t p-3 flex gap-2">
         <input
+          type="text"
           className="flex-1 border rounded px-3 py-2 text-sm"
           placeholder="Write a comment..."
           value={text}
@@ -112,7 +132,7 @@ function Comment({ blogId, blogAuthorId }) {
         />
         <button
           onClick={submitHandler}
-          className="bg-blue-600 text-white px-4 rounded"
+          className="bg-blue-600 text-white px-4 rounded hover:bg-blue-700"
         >
           Post
         </button>

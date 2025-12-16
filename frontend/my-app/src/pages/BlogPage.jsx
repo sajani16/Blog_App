@@ -25,7 +25,7 @@ function BlogPage() {
   // Fetch blog
   const fetchBlog = async () => {
     try {
-      const res = await axios.get(`${base_url}/getblog/${id}`);
+      const res = await axios.get(`${base_url}/blog/getblog/${id}`);
       const fetchedBlog = res.data.blog;
       setBlog(fetchedBlog);
       setIsLiked(fetchedBlog.like?.some((likeUser) => likeUser._id === userId));
@@ -47,7 +47,7 @@ function BlogPage() {
     try {
       setIsLiked((prev) => !prev);
       const res = await axios.post(
-        `${base_url}/likeblog/${id}`,
+        `${base_url}/blog/likeblog/${id}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );

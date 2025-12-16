@@ -11,7 +11,7 @@ function Home() {
     const base_url = import.meta.env.VITE_BACKEND_URL;
 
     try {
-      const res = await axios.get(`${base_url}/getblogs`);
+      const res = await axios.get(`${base_url}/blog/getblogs`);
       setBlogs(res.data.blogs);
     } catch (err) {
       console.error("Error fetching blogs:", err);

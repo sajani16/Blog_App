@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { User, FileText, LogOut, Home, X } from "lucide-react";
+import { User, FileText, LogOut, Home, X, Plus } from "lucide-react"; // add Plus icon
 
 function Sidebar({ isOpen, toggleSidebar }) {
   const navigate = useNavigate();
@@ -9,6 +9,7 @@ function Sidebar({ isOpen, toggleSidebar }) {
     { label: "Dashboard", icon: Home, path: "/" },
     { label: "My Posts", icon: FileText, path: "/myposts" },
     { label: "Profile", icon: User, path: "/profile" },
+    { label: "Write Blog", icon: Plus, path: "/addblog" }, // new item
   ];
 
   const handleLogout = () => {

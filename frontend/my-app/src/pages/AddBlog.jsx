@@ -24,7 +24,7 @@ function AddBlog() {
   async function handlePostBlog() {
     const base_url = import.meta.env.VITE_BACKEND_URL;
     try {
-      const res = await axios.post(`${base_url}/createblogs`, blog, {
+      const res = await axios.post(`${base_url}/blog/createblogs`, blog, {
         headers: {
           "Content-Type": "multipart/form-data",
           Authorization: `Bearer ${token}`,

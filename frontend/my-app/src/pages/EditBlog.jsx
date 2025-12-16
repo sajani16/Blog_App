@@ -23,7 +23,7 @@ function EditBlog() {
     async function fetchBlog() {
       try {
         const base_url = import.meta.env.VITE_BACKEND_URL;
-        const res = await axios.get(`${base_url}/getblog/${id}`);
+        const res = await axios.get(`${base_url}/blog/getblog/${id}`);
 
         if (res.data.success) {
           const b = res.data.blog;
@@ -53,7 +53,7 @@ function EditBlog() {
       const base_url = import.meta.env.VITE_BACKEND_URL;
 
       const res = await axios.put(
-        `${base_url}/updateblog/${id}`,
+        `${base_url}/blog/updateblog/${id}`,
         blog, // ✅ same pattern as AddBlog
         {
           headers: {
@@ -108,7 +108,7 @@ function EditBlog() {
               className="w-full rounded-md object-cover aspect-video"
             />
           ) : (
-            // old image 
+            // old image
             <img
               src={blog.oldImage}
               className="w-full rounded-md object-cover aspect-video"
@@ -134,7 +134,6 @@ function EditBlog() {
           Update Blog
         </button>
       </div>
-      
     </div>
   );
 }
