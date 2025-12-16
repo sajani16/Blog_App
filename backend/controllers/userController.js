@@ -3,39 +3,50 @@ const bcrypt = require("bcryptjs");
 const generateToken = require("../utils/generateToken");
 const { uploadImage } = require("../config/uploadImage");
 const fs = require("fs");
+const cloudinary = require("cloudinary").v2;
 
 async function createUser(req, res) {
   try {
     const { name, email, password } = req.body;
-    const { secure_url, public_id } = await uploadImage();
-    const image = req.file;
-    if (!name || !email || !password)
-      return res.json({
-        message: "All fields required",
-      });
 
-    const salt = await bcrypt.genSalt(10);
-    const hashed = await bcrypt.hash(password, salt);
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "All fields required" });
+    }
+
+    let imageUrl = "";
+    let imageId = "";
+
+    if (req.file) {
+      const upload = await uploadImage(req.file.path);
+      imageUrl = upload.secure_url;
+      imageId = upload.public_id;
+      fs.unlinkSync(req.file.path);
+    }
+
+    const hashed = await bcrypt.hash(password, 10);
+
     const user = await User.create({
       name,
       email,
       password: hashed,
-      image: secure_url,
-      imageId: public_id,
+      image: imageUrl,
+      imageId,
     });
-    const token = generateToken(user._id, user.email);
-    fs.unlinkSync(image.path);
+
+    // const token = generateToken(user._id, user.email);
+
     return res.json({
       success: true,
       message: "User created successfully",
       user,
-      token,
+      // token,
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: "Error creating user" });
   }
 }
+
 async function getUsers(req, res) {
   try {
     const users = await User.find({});
@@ -56,7 +67,6 @@ async function getUser(req, res) {
   try {
     const id = req.params.id;
     const user = await User.findById(id);
-    const token = generateToken(user._id, user.email);
     // const user = User.findOne(id);
     if (!user) return res.json({ message: "No user found" });
     console.log(user);
@@ -65,7 +75,7 @@ async function getUser(req, res) {
       success: true,
       message: "User fetched successfully",
       user,
-      token,
+      
       // user: {
       //   name: user.name,
       //   email: user.email,
@@ -80,28 +90,58 @@ async function updateUser(req, res) {
   try {
     const id = req.params.id;
     const { name, email, password } = req.body;
-    const hashed = await bcrypt.hash(password, 10);
 
-    const updateduser = await User.findByIdAndUpdate(
-      id,
-      { name, email, password: hashed },
-      { new: true }
-    );
+    const user = await User.findById(id);
+    if (!user)
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
 
-    console.log(updateduser);
+    // ---- basic field updates ----
+    if (name) user.name = name;
+    if (email) user.email = email;
+
+    // ---- password update (ONLY if provided) ----
+    if (password && password.trim() !== "") {
+      const hashed = await bcrypt.hash(password, 10);
+      user.password = hashed;
+    }
+
+    // ---- image update (ONLY if file uploaded) ----
+    if (req.file) {
+      const { secure_url, public_id } = await uploadImage(req.file.path);
+
+      if (user.imageId) {
+        await cloudinary.uploader.destroy(user.imageId);
+      }
+
+      user.image = secure_url;
+      user.imageId = public_id;
+
+      fs.unlinkSync(req.file.path);
+    }
+
+    await user.save();
+
     return res.json({
       success: true,
       message: "User updated successfully",
-      updateduser: {
-        name: updateduser.name,
-        email: updateduser.email,
+      updatedUser: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        image: user.image,
       },
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ success: false, message: "Error updating user" });
+    res.status(500).json({
+      success: false,
+      message: "Error updating user",
+    });
   }
 }
+
 async function deleteUser(req, res) {
   try {
     const id = req.params.id;

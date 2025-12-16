@@ -1,6 +1,9 @@
 const cloudinary = require("cloudinary").v2;
 
 async function uploadImage(imagePath) {
+  if (!imagePath) {
+    throw new Error("Image path is required");
+  }
   try {
     const result = await cloudinary.uploader.upload(imagePath, {
       folder: "blog-app",
@@ -13,9 +16,10 @@ async function uploadImage(imagePath) {
 
 async function deleteImageCloudinary(imageId) {
   try {
-    await cloudinary.uploader.destroy(imageId);
+    const result = await cloudinary.uploader.destroy(imageId);
+    return result;
   } catch (error) {
-    console.log(error);
+    console.error("Cloudinary delete failed:", error);
   }
 }
 

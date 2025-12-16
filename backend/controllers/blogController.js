@@ -45,7 +45,7 @@ async function getBlogs(req, res) {
     const blogs = await Blog.find({})
       .populate({
         path: "author",
-        select: "name",
+        select: "name image",
       })
       .populate({
         path: "like",
@@ -148,18 +148,28 @@ async function deleteBlog(req, res) {
   try {
     const id = req.params.id;
     const author = req.user.id;
-    console.log(author);
+
     const blog = await Blog.findById(id);
-    if (!blog) return res.json({ message: "No blog found" });
-    console.log(blog.author);
-    if (author !== blog.author)
-      return res.json({
-        success: false,
-        message: "Accessed denied to delete.",
-      });
-    await uploadImage.deleteImageCloudinary(blog.imageId);
+    if (!blog)
+      return res.status(404).json({ success: false, message: "No blog found" });
+
+    if (author !== blog.author.toString()) {
+      return res
+        .status(403)
+        .json({ success: false, message: "Access denied to delete." });
+    }
+
+    // Delete image from Cloudinary if exists
+    if (blog.imageId) {
+      await deleteImageCloudinary(blog.imageId);
+    }
+
+    // Delete blog document
     const deleted = await Blog.findByIdAndDelete(id);
+
+    // Remove blog reference from user's blogs array
     await User.findByIdAndUpdate(author, { $pull: { blogs: id } });
+
     return res.json({
       success: true,
       message: "Deleted successfully",
