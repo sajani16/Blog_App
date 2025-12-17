@@ -10,7 +10,9 @@ function MyPosts() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const { _id: userId, token } = useSelector((state) => state.user) || {};
+  const userState = useSelector((state) => state.user) || {};
+  const userId = userState._id;
+  const token = userState.token;
   const base_url = import.meta.env.VITE_BACKEND_URL;
 
   // Fetch user posts
@@ -20,7 +22,7 @@ function MyPosts() {
     try {
       const res = await axios.get(`${base_url}/blog/getblogs`);
       const allPosts = res.data.blogs || [];
-      const userPosts = allPosts.filter((p) => p.author._id === userId);
+      const userPosts = allPosts.filter((p) => p.author?._id === userId);
       setPosts(userPosts);
     } catch (err) {
       console.error(err);
@@ -79,33 +81,40 @@ function MyPosts() {
       {posts.map((post) => (
         <div
           key={post._id}
-          className="bg-white rounded-xl shadow-md overflow-hidden flex flex-col"
+          className="bg-white rounded-xl shadow-md overflow-hidden flex flex-col hover:shadow-lg transition-shadow"
         >
-          {post.image && (
+          {post.image ? (
             <img
               src={post.image}
               alt={post.title}
               className="w-full h-48 object-cover"
             />
+          ) : (
+            <div className="w-full h-48 bg-gray-200 flex items-center justify-center text-gray-500">
+              No Image
+            </div>
           )}
+
           <div className="p-4 flex flex-col flex-1">
-            <h2 className="text-lg font-bold mb-2">{post.title}</h2>
-            <p className="text-gray-600 mb-4 line-clamp-3">
+            <h2 className="text-lg font-bold mb-2 line-clamp-2">
+              {post.title}
+            </h2>
+            <p className="text-gray-600 mb-4 ">
               {post.description}
             </p>
             <p className="text-sm text-gray-400 mb-2">
-              Author: {post.author.name}
+              Author: {post.author?.name || "Unknown Author"}
             </p>
-            <div className="mt-auto flex gap-2">
+            <div className="mt-auto flex gap-2 flex-wrap">
               <button
                 onClick={() => navigate(`/editblog/${post._id}`)}
-                className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+                className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition"
               >
                 <Edit size={16} /> Edit
               </button>
               <button
                 onClick={() => handleDelete(post._id)}
-                className="flex items-center gap-1 px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
+                className="flex items-center gap-1 px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition"
               >
                 <Trash2 size={16} /> Delete
               </button>
