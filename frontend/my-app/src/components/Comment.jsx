@@ -65,7 +65,7 @@ function Comment({ blogId, blogAuthorId }) {
 
   return (
     <div
-      className={`fixed top-13 right-0 h-screen bg-white shadow-xl transition-transform duration-300
+      className={`fixed top-13 right-0 h-204 bg-white shadow-xl transition-transform duration-300
       ${isOpen ? "translate-x-0" : "translate-x-full"} w-[35%] flex flex-col`}
     >
       {/* Header */}

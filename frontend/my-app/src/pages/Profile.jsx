@@ -1,92 +1,128 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import Avatar from "../utils/Avatar";
 
 function Profile() {
-  const user = JSON.parse(localStorage.getItem("user"));
-  const token = JSON.parse(localStorage.getItem("token"));
+  const { _id: userId, token } = useSelector((state) => state.user);
+  const navigate = useNavigate();
 
   const [profile, setProfile] = useState({
     name: "",
     email: "",
     password: "",
-    image: null, // File
-    oldImage: "", // URL
+    image: null,
+    oldImage: null,
   });
 
   const [loading, setLoading] = useState(true);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  const base_url = import.meta.env.VITE_BACKEND_URL;
 
   useEffect(() => {
-    if (!user?._id) return;
+    if (!userId || !token) return;
 
-    setProfile({
-      name: user.name,
-      email: user.email,
-      password: "",
-      image: null,
-      oldImage: user.image,
-    });
+    const fetchUser = async () => {
+      setLoading(true);
+      try {
+        const res = await axios.get(`${base_url}/user/getuser/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-    setLoading(false);
-  }, []);
+        const u = res.data.user;
+        setProfile({
+          name: u.name || "",
+          email: u.email || "",
+          password: "",
+          image: null,
+          oldImage: u.image || null,
+        });
+      } catch (err) {
+        toast.error("Failed to load profile");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUser();
+  }, [userId, token]);
 
   if (loading) return <p>Loading...</p>;
 
-  async function updateProfile() {
+  const imageSrc = profile.image
+    ? URL.createObjectURL(profile.image)
+    : profile.oldImage || Avatar(profile.name);
+
+  const updateProfile = async () => {
     if (!profile.name || !profile.email) {
       toast.error("Name and email are required");
       return;
     }
 
     try {
-      const base_url = import.meta.env.VITE_BACKEND_URL;
+      const formData = new FormData();
+      formData.append("name", profile.name);
+      formData.append("email", profile.email);
+      if (profile.password) formData.append("password", profile.password);
+      if (profile.image) formData.append("image", profile.image);
 
       const res = await axios.put(
-        `${base_url}/user/updateuser/${user._id}`,
-        profile, // ✅ SAME as EditBlog
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        `${base_url}/user/updateuser/${userId}`,
+        formData,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
       if (res.data.success) {
         toast.success("Profile updated");
-
-        localStorage.setItem("user", JSON.stringify(res.data.updatedUser));
-
+        const updated = res.data.updatedUser;
         setProfile((prev) => ({
           ...prev,
           password: "",
           image: null,
-          oldImage: res.data.updatedUser.image,
+          oldImage: updated.image || null,
         }));
+        navigate("/");
       }
     } catch (err) {
       toast.error(err.response?.data?.message || err.message);
     }
-  }
+  };
+
+  const deleteAccount = async () => {
+    try {
+      const res = await axios.delete(`${base_url}/user/deleteuser/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.data.success) {
+        toast.success("Account deleted successfully");
+        setShowDeleteModal(false);
+        // Clear localStorage
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
+        // Redirect to register page
+        navigate("/register");
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message);
+      setShowDeleteModal(false);
+    }
+  };
 
   return (
     <div className="flex justify-center p-6 bg-gray-100">
       <div className="w-full max-w-md bg-white p-5 rounded-xl shadow">
         <h2 className="text-xl font-semibold mb-4">My Profile</h2>
 
-        {/* Image */}
         <label htmlFor="image" className="block cursor-pointer mb-4">
-          {profile.image ? (
-            <img
-              src={URL.createObjectURL(profile.image)}
-              className="w-32 h-32 rounded-full object-cover mx-auto"
-            />
-          ) : (
-            <img
-              src={profile.oldImage || "/avatar.png"}
-              className="w-32 h-32 rounded-full object-cover mx-auto"
-            />
-          )}
+          <img
+            src={imageSrc}
+            alt="profile"
+            className="w-32 h-32 rounded-full object-cover mx-auto"
+          />
         </label>
 
         <input
@@ -95,10 +131,7 @@ function Profile() {
           accept="image/*"
           className="hidden"
           onChange={(e) =>
-            setProfile((prev) => ({
-              ...prev,
-              image: e.target.files[0],
-            }))
+            setProfile((prev) => ({ ...prev, image: e.target.files[0] }))
           }
         />
 
@@ -134,10 +167,43 @@ function Profile() {
 
         <button
           onClick={updateProfile}
-          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700"
+          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 mb-3"
         >
           Update Profile
         </button>
+
+        {/* Delete Account Button */}
+        <button
+          onClick={() => setShowDeleteModal(true)}
+          className="w-full bg-red-600 text-white py-2 rounded-md hover:bg-red-700"
+        >
+          Delete Account
+        </button>
+
+        {/* Simple UI Modal */}
+        {showDeleteModal && (
+          <div className="fixed inset-0 flex items-center justify-center bg-white ">
+            <div className="bg-white p-5 rounded-lg shadow-md w-80">
+              <p className="mb-4 font-medium text-center">
+                Are you sure you want to delete your account?
+              </p>
+              <div className="flex justify-between">
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={deleteAccount}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
