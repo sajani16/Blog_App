@@ -67,25 +67,25 @@ async function getUser(req, res) {
   try {
     const id = req.params.id;
     const user = await User.findById(id);
-    // const user = User.findOne(id);
-    if (!user) return res.json({ message: "No user found" });
-    console.log(user);
+    if (!user)
+      return res.status(404).json({ success: false, message: "No user found" });
 
     return res.json({
       success: true,
       message: "User fetched successfully",
-      user,
-      
-      // user: {
-      //   name: user.name,
-      //   email: user.email,
-      // },
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        image: user.image || null, // always defined
+      },
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: "Error fetching user" });
   }
 }
+
 async function updateUser(req, res) {
   try {
     const id = req.params.id;
