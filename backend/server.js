@@ -17,7 +17,7 @@ app.use("/api/auth", authRoutes);
 app.use("/user", userRoutes);
 app.use("/blog", blogRoutes);
 app.get("/", (req, res) => {
-res.send("Get is running");
+  res.send("Get is running");
 });
 
 app.listen(PORT, () => {
