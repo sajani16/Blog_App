@@ -11,6 +11,8 @@ function Login() {
     password: "",
   });
   const navigate = useNavigate();
+    const base_url = import.meta.env.VITE_BACKEND_URL;
+
   const dispatch = useDispatch();
   async function handleLogin(e) {
     e.preventDefault();
@@ -31,7 +33,7 @@ function Login() {
       //     toast.error(data.message || "Login failed");
       //   }
       const res = await axios.post(
-        "http://localhost:3000/api/auth/login",
+        `${base_url}/api/auth/login`,
         userData
       );
 
